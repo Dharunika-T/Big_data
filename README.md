@@ -1,0 +1,114 @@
+# E-Commerce BI Dashboard
+
+Multi-page React dashboard with a FastAPI API and a one-time Hive-to-MongoDB data sync.
+
+## Data flow
+
+```text
+Hive (HiveServer2) --one-time sync command--> MongoDB <--read-only-- FastAPI <--HTTP/JSON-- React website
+```
+
+The website does not query Hive. Run the sync when initially loading the static dataset, then rerun it only if Hive data changes. The sync replaces each target collection with a complete new result, and can be rerun without duplicate rows.
+
+The Hive database must already contain these tables:
+
+| Table / MongoDB collection | Fields |
+| --- | --- |
+| `delivery_analysis` | `order_id`, `customer_city`, `customer_state`, `item_total`, `freight_total`, `payment_total`, `avg_review_score`, `delay_days`, `delivery_result` |
+| `review_summary` | `customer_state`, `reviewed_orders`, `avg_review_score` |
+| `state_summary` | `customer_state`, `delivered_orders`, `total_delay_days`, `avg_delay_days` |
+
+Collection names match Hive table names. The sync reads rows in batches of 1,000 and stages each collection before replacing its previous contents.
+
+## Automatic dependency setup (Ubuntu)
+
+Run this on Ubuntu 22.04+ with an internet connection and a user permitted to run `sudo`. The setup script installs Python, venv/pip, and Node.js 20/npm if needed, then creates an isolated Python virtual environment, downloads all Python and frontend packages from their manifests, and creates the local `.env` from the example. The Python requirements use the pure-Python SASL implementation to avoid a compiler dependency for the Hive client:
+
+```bash
+chmod +x setup-ubuntu.sh
+./setup-ubuntu.sh
+```
+
+The script does not install MongoDB or Hive. Those services must be running and reachable; set their connection values in `backend/.env`. Do not commit `.env` or credentials.
+
+## Configure and load data
+
+Edit `backend/.env` with your friend's HiveServer2 and MongoDB details:
+
+```dotenv
+APP_DATA_MODE=auto
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DATABASE=ecommerce_bi
+HIVE_HOST=localhost
+HIVE_PORT=10000
+HIVE_DATABASE=default
+HIVE_USERNAME=
+HIVE_PASSWORD=
+HIVE_AUTH=NONE
+API_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+If services run on a different laptop, replace `localhost` with that machine's reachable hostname/IP and ensure its firewall/network allows HiveServer2 (usually TCP 10000) and MongoDB (usually TCP 27017). Use the correct Hive authentication mode and credentials from your friend.
+
+Run the one-time sync from the repository root:
+
+```bash
+cd backend
+.venv/bin/python sync_hive_to_mongodb.py
+```
+
+The script executes a `SELECT` for each expected Hive table and atomically replaces its MongoDB collection from a staging collection. It exits nonzero and reports an error if Hive or MongoDB cannot be reached.
+
+## Start the application
+
+In one terminal:
+
+```bash
+cd backend
+.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+In a second terminal:
+
+```bash
+cd frontend
+npm run dev -- --host 0.0.0.0
+```
+
+Open `http://localhost:5173`. API docs are available at `http://localhost:8000/docs`.
+
+To open the site from another device on the same network, create `frontend/.env.local` with the backend laptop's reachable IP (for example `VITE_API_BASE_URL=http://192.168.1.20:8000/api`) and set `API_CORS_ORIGINS` in `backend/.env` to the frontend URL (for example `http://192.168.1.20:5173`), then restart both services. Ensure both ports are permitted by the laptop firewall.
+
+## Mock and live data
+
+With `APP_DATA_MODE=auto` (default), the API serves stable sample data if MongoDB is not configured, is unavailable, or the requested collection is empty. Responses include `meta.source` (`mock` or `mongodb`) and a warning when showing sample data; the website shows this status. Set `APP_DATA_MODE=mock` to force sample data or `APP_DATA_MODE=mongodb` to require MongoDB and receive an explicit HTTP 503/error if it is unavailable.
+
+The sample set lets the frontend run before the Hive/MongoDB services are set up. No Hive data is fetched from the website.
+
+## API
+
+| Method and route | Purpose |
+| --- | --- |
+| `GET /api/health` | API/data-source connection status |
+| `GET /api/dashboard` | Overview KPIs and top revenue states |
+| `GET /api/states` | State-level delivery summary |
+| `GET /api/reviews` | State-level review summary |
+| `GET /api/deliveries?state=SP&city=campinas&offset=0&limit=50` | Delivery rows with optional filters and pagination |
+| `GET /api/cities` | Distinct city names represented in delivery records |
+
+State-level and order-level pages are supported by the supplied schemas. Customer-specific profile analytics are not, because no customer identifier is present in the provided fields.
+
+## Dependencies
+
+- Backend: FastAPI, Uvicorn, PyMongo, PyHive, python-dotenv (pinned by compatible version ranges in `backend/requirements.txt`).
+- Frontend: React, Vite, Recharts, lucide-react (declared in `frontend/package.json` and lockfile generated by `npm install`).
+
+## Backend tests
+
+Install the test-only dependencies and run the API tests:
+
+```bash
+cd backend
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest
+```
