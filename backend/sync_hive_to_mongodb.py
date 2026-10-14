@@ -79,6 +79,12 @@ def main() -> int:
         database = mongo_client[os.getenv("MONGODB_DATABASE", "ecommerce_bi")]
         cursor = hive_connection.cursor()
         try:
+            cursor.execute("SET hive.cbo.enable=false")
+            cursor.execute("SET hive.execution.engine=mr")
+            cursor.execute(
+                "ADD JAR /usr/local/apache-hive-4.1.0-bin/lib/"
+                "commons-collections-3.2.2.jar"
+            )
             for table in TABLES:
                 sync_table(cursor, database, table)
         finally:

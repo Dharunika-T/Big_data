@@ -25,7 +25,6 @@ import {
   PackageCheck,
   ShieldAlert,
   Search,
-  Settings,
   ShieldCheck,
   Sparkles,
   ShoppingCart,
@@ -62,14 +61,12 @@ import { getCities, getDashboard, getDeliveries, getReviews, getStates } from ".
 
 const navigation = [
   { id: "overview", label: "Home", icon: House },
-  { id: "executive", label: "Executive summary", icon: Gauge },
   { id: "health", label: "Business health", icon: Activity },
   { id: "states", label: "State intelligence", icon: Map },
   { id: "locations", label: "City insights", icon: MapPin },
   { id: "customer", label: "Customer analytics", icon: Star },
   { id: "revenue", label: "Revenue analytics", icon: ChartColumnIncreasing },
   { id: "delivery", label: "Delivery performance", icon: Truck },
-  { id: "comparison", label: "State comparison", icon: Users },
   { id: "recommendations", label: "Recommendation engine", icon: Lightbulb },
   { id: "alerts", label: "Alerts & monitoring", icon: ShieldAlert },
   { id: "rankings", label: "Business rankings", icon: Medal },
@@ -196,7 +193,6 @@ function App() {
         </nav>
         <div className="nav-caption nav-caption-bottom">MONITORING</div>
         <button className={`nav-item ${page === "alerts" ? "active" : ""}`} onClick={() => setActivePage("alerts")}><Bell size={18} /><span>Alerts & monitoring</span><span className="alert-count">{states.filter((row) => Number(row.avg_delay_days) > 0 || Number(row.avg_review_score) < 3.5).length}</span></button>
-        <button className="nav-item"><Settings size={18} /><span>Settings</span></button>
         <div className="connection-card">
           <div className="connection-title"><span className={`status-pulse ${meta.source === "mongodb" ? "live" : ""}`} />Data pipeline</div>
           <div className="connection-flow"><span>Hive</span><ArrowRight size={13} /><span>MongoDB</span></div>
@@ -228,14 +224,13 @@ function App() {
           {loading && <div className="loading-banner"><span className="spinner" />Loading analytics…</div>}
           {!loading && !error && dashboard && (
             <>
-              {(page === "overview" || page === "executive") && <Overview dashboard={dashboard} states={states} reviews={reviews} navigate={setActivePage} />}
+              {page === "overview" && <Overview dashboard={dashboard} states={states} reviews={reviews} navigate={setActivePage} />}
               {page === "health" && <HealthPage dashboard={dashboard} states={states} reviews={reviews} navigate={setActivePage} />}
               {page === "states" && <StatePage states={states} navigate={setActivePage} />}
               {page === "locations" && <LocationsPage cities={cities} navigate={setActivePage} />}
               {page === "customer" && <ReviewPage reviews={reviews} />}
               {page === "delivery" && <DeliveryPage deliveries={deliveries} total={deliveryTotal} offset={deliveryOffset} limit={deliveryLimit} setOffset={setDeliveryOffset} states={states} stateFilter={stateFilter} cityFilter={cityFilter} setStateFilter={changeStateFilter} setCityFilter={changeCityFilter} cities={cities} loading={deliveryLoading} />}
               {page === "revenue" && <RevenuePage dashboard={dashboard} />}
-              {page === "comparison" && <StatePage states={states} navigate={setActivePage} />}
               {page === "recommendations" && <RecommendationsPage states={states} reviews={reviews} navigate={setActivePage} />}
               {page === "alerts" && <AlertsPage states={states} reviews={reviews} navigate={setActivePage} />}
               {page === "rankings" && <RankingsPage states={states} dashboard={dashboard} navigate={setActivePage} />}
@@ -344,11 +339,7 @@ function Overview({ dashboard, states, reviews, navigate }) {
           </div><div className="delay-legend"><strong>Delivery results</strong><span><i className="flow-green" />On time <b>{dashboard.delivery_success_rate.toFixed(1)}%</b></span><span><i className="flow-red" />Delayed <b>{(100 - dashboard.delivery_success_rate).toFixed(1)}%</b></span><div className="delay-number"><Clock3 size={14} />Avg. {delayLabel(dashboard.avg_delay_days)}</div></div></div>
         </section>
 
-        <section className="ref-panel comparison-widget">
-          <PanelTitle number="04" title="State comparison" subtitle="Top delivered states" link="Compare states" onClick={() => navigate("comparison")} />
-          <div className="table-wrap"><table><thead><tr><th>Rank</th><th>State</th><th>Delivered</th><th>Avg delay</th><th>Score</th></tr></thead><tbody>{[...states].sort((a, b) => Number(b.delivered_orders) - Number(a.delivered_orders)).slice(0, 5).map((row, index) => <tr key={row.customer_state}><td><span className="rank">{index + 1}</span></td><td><b className="rank-state">{row.customer_state}</b></td><td className="good-text">{Number(row.delivered_orders).toLocaleString()}</td><td className={Number(row.avg_delay_days) > 0 ? "bad-text" : "good-text"}>{Number(row.avg_delay_days).toFixed(1)}</td><td><span className="score-chip">{Number(row.avg_delay_days) < 0 ? "Good" : "Watch"}</span></td></tr>)}</tbody></table></div>
-          <button className="compare-button" onClick={() => navigate("comparison")}>Compare all states <ArrowRight size={12} /></button>
-        </section>
+
 
         <section className="ref-panel recommendation-widget">
           <PanelTitle number="05" title="Recommendation engine" subtitle="Based on provided Hive summaries" link="View all" onClick={() => navigate("recommendations")} />
@@ -637,6 +628,7 @@ function delayLabel(value) {
 }
 
 const axisTick = { fill: "#8290ad", fontSize: 11 };
-const tooltipStyle = { background: "#0e1d3b", border: "1px solid #263959", borderRadius: 8, color: "#eff4ff" };
+const tooltipStyle = { background: "#faf8f8", border: "2px solid #000000", borderRadius: 8, color: "#090a0a" };
 
 export default App;
+// eff4ff
